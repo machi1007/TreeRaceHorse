@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大樹賽馬遊戲</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 20px 0;
+            color: #333;
+        }
+
+        #controls, #styleControls {
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        #race-track {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .lane {
+            position: relative;
+            border: 1px solid #ccc;
+            margin-bottom: -1px; /* 重疊邊框 */
+            background-color: #fff;
+            height: 60px;
+            overflow: hidden;
+        }
+
+        .horse {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 30px;
+            transition: left 0.3s ease-in-out;
+        }
+
+        .finish-line {
+            position: absolute;
+            left: 95%;
+            top: 0;
+            bottom: 0;
+            border-left: 3px dashed red;
+            width: 2px;
+        }
+
+        .lane-label {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        button {
+            background-color: #4CAF50; 
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        select {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+<h2>大樹賽馬遊戲</h2>
+    <div id="controls">
+        <div>馬的數量：<input type="number" id="numberOfHorses" value="3" min="1" max="100"></div>
+        <button id="startRace">開始賽跑</button>
+    </div>
+
+    <div id="race-track"></div>
+    <div id="styleControls"></div>
+    <div id="results"></div>
+<div id="rankingResults" style="margin-top: 20px; background: white; padding: 10px; max-height: 300px; overflow-y: scroll; border-radius: 8px;"></div>
+
+
+    <script>
+        document.getElementById("startRace").addEventListener("click", startRace);
+        let raceInProgress = false;
+
+
+        function createTrackAndHorses(numberOfHorses) {
+            const raceTrack = document.getElementById('race-track');
+            raceTrack.innerHTML = '';
+            const styleControls = document.getElementById('styleControls');
+            styleControls.innerHTML = '';
+            const laneHeight = Math.max(40, 400 / numberOfHorses);
+
+            for (let i = 0; i < numberOfHorses; i++) {
+                const lane = document.createElement('div');
+                lane.className = 'lane';
+                lane.style.height = `${laneHeight}px`;
+                const laneLabel = document.createElement('input');
+                laneLabel.className = 'lane-label';
+                laneLabel.value = `賽道 ${i + 1}`;
+                lane.appendChild(laneLabel);
+                const horse = document.createElement('span');
+                horse.className = 'horse';
+                horse.textContent = '🐎';
+                horse.id = `horse-${i}`;
+                lane.appendChild(horse);
+                raceTrack.appendChild(lane);
+
+                const laneInfo = document.createElement('div');
+                laneInfo.className = 'lane-info';
+                laneInfo.innerHTML = `
+                    <label for="horseStyle-${i}">${i + 1}:</label>
+                    <select id="horseStyle-${i}">
+                        <option value="🐎">馬</option>
+                        <option value="🦄">獨角獸</option>
+                        <option value="🦓">斑馬</option>
+                        <option value="🐴">馬頭</option>
+                        <option value="🦌">鹿</option>
+                        <option value="🐘">象</option>
+                        <option value="🐪">駱駝</option>
+                        <option value="🐃">水牛</option>
+                        <option value="🐐">山羊</option>
+                        <option value="🦙">駝羊</option>
+                        <option value="🦏">犀牛</option>
+                        <option value="🦛">河馬</option>
+                        <option value="🐁">鼠</option>
+                        <option value="🐇">兔</option>
+                        <option value="🦘">袋鼠</option>
+                    </select>
+                `;
+                styleControls.appendChild(laneInfo);
+
+                document.getElementById(`horseStyle-${i}`).addEventListener('change', (event) => {
+                    document.getElementById(`horse-${i}`).textContent = event.target.value;
+                });
+            }
+
+            const finishLine = document.createElement('div');
+            finishLine.className = 'finish-line';
+            raceTrack.appendChild(finishLine);
+        }
+
+        function startRace() {
+            if (raceInProgress) return;
+            raceInProgress = true;
+            resetHorses(); // 重置馬的位置
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.textContent = '';
+            const raceResults = [];
+            const raceTrackWidth = document.getElementById('race-track').clientWidth;
+
+            const horses = document.querySelectorAll('.horse');
+            horses.forEach((horse, index) => {
+                const time = Math.random() * 2000 + 3000;
+                horse.style.transition = `left ${time}ms linear`;
+
+                setTimeout(() => {
+                    horse.style.left = (raceTrackWidth - horse.clientWidth - 20) + 'px';
+                }, 10);
+
+                setTimeout(() => {
+                    raceResults.push({
+                        lane: document.querySelector(`.lane:nth-child(${index + 1}) .lane-label`).value,
+                        time: time
+                    });
+                    if (raceResults.length === horses.length) {
+    raceInProgress = false;
+    raceResults.sort((a, b) => a.time - b.time);
+    let rankingHTML = '<strong>排名結果:</strong><br>';
+    raceResults.forEach((result, idx) => {
+        rankingHTML += (idx + 1) + '. ' + result.lane + ' - ' + (result.time / 1000).toFixed(2) + ' 秒<br>';
+    });
+    resultsDiv.innerHTML = rankingHTML;
+}
+                }, time);
+            });
+        }
+
+        function resetHorses() {
+            const horses = document.querySelectorAll('.horse');
+            horses.forEach(horse => {
+                horse.style.left = '0';
+                horse.style.transition = 'none';
+            });
+        }
+
+        document.getElementById('numberOfHorses').addEventListener('change', (event) => {
+            createTrackAndHorses(event.target.value);
+        });
+
+        createTrackAndHorses(document.getElementById('numberOfHorses').value);
+    </script>
+</body>
+</html>
